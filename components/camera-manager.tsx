@@ -26,6 +26,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
+import LoginPage from "@/app/login/page"
+import { useRouter } from "next/navigation"
+import { ThemeProvider } from "@/components/theme-provider"
+
 
 interface Camera {
   id: string
@@ -62,6 +66,12 @@ export function CameraManager() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const wsConnections = useRef<Map<string, WebSocket>>(new Map())
+
+  const router = useRouter()
+
+
+
+
 
   const loadCameraData = async () => {
     try {
@@ -233,14 +243,18 @@ export function CameraManager() {
     }
   }
 
+
+  // TODO: Implement login action 
+  // TODO: Call page login
   const handleLogin = async () => {
     try {
       console.log("[v0] Attempting login...")
-      const authToken = "demo-auth-token-" + Date.now()
-      localStorage.setItem("authToken", authToken)
-      setIsAuthenticated(true)
-
-      await loadCameraData()
+      // const authToken = "demo-auth-token-" + Date.now()
+      // localStorage.setItem("authToken", authToken)
+      // setIsAuthenticated(true)
+      // await loadCameraData()
+      // TODO: Show login page or redirect to login route here
+      router.push("/login")
     } catch (error) {
       console.error("[v0] Login error:", error)
     }
@@ -438,14 +452,34 @@ export function CameraManager() {
                 <User className="h-4 w-4" />
                 {isAuthenticated ? "Logged In" : "Login"}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="bg-transparent"
-              >
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </Button>
+
+
+              {/* Dark/Light Mode Toggle */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                    <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+                    <span className="sr-only">Toggle theme</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setTheme("light")}>
+                    Light
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("dark")}>
+                    Dark
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("system")}>
+                    System
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+
+
+
+              
               <Button
                 variant={viewMode === "grid" ? "default" : "outline"}
                 size="sm"
