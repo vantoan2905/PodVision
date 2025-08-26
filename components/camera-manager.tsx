@@ -26,10 +26,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
-import LoginPage from "@/app/login/page"
+import { loadCameraData, startCameraStream } from "@/lib/camera-utils"
 import { useRouter } from "next/navigation"
-import { ThemeProvider } from "@/components/theme-provider"
-
 
 interface Camera {
   id: string
@@ -61,217 +59,34 @@ export function CameraManager() {
     password: "",
   })
   const { theme, setTheme } = useTheme()
-
   const [cameras, setCameras] = useState<Camera[]>([])
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const wsConnections = useRef<Map<string, WebSocket>>(new Map())
-
   const router = useRouter()
 
-
-
-
-
-  const loadCameraData = async () => {
-    try {
-      setIsLoading(true)
-      console.log("[v0] Loading camera data from API...")
-
-      const response = await fetch("/api/cameras", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to load cameras")
-      }
-
-      const cameraData = await response.json()
-      console.log("[v0] Loaded cameras:", cameraData)
-      setCameras(cameraData)
-
-      cameraData.forEach((camera: Camera) => {
-        if (camera.status === "online" || camera.status === "recording") {
-          startCameraStream(camera)
-        }
-      })
-    } catch (error) {
-      console.error("[v0] Error loading cameras:", error)
-      const mockCameras: Camera[] = [
-        {
-          id: "1",
-          name: "Front Entrance",
-          location: "Main Building",
-          status: "online",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "1080p",
-          lastActive: "2 min ago",
-          ipAddress: "192.168.1.100",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "2",
-          name: "Parking Lot A",
-          location: "North Side",
-          status: "recording",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "4K",
-          lastActive: "Live",
-          ipAddress: "192.168.1.101",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "3",
-          name: "Reception Area",
-          location: "Lobby",
-          status: "online",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "1080p",
-          lastActive: "1 min ago",
-          ipAddress: "192.168.1.102",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "4",
-          name: "Server Room",
-          location: "Basement",
-          status: "offline",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "720p",
-          lastActive: "1 hour ago",
-          ipAddress: "192.168.1.103",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "5",
-          name: "Loading Dock",
-          location: "Warehouse",
-          status: "online",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "1080p",
-          lastActive: "30 sec ago",
-          ipAddress: "192.168.1.104",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "6",
-          name: "Conference Room B",
-          location: "2nd Floor",
-          status: "recording",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "4K",
-          lastActive: "Live",
-          ipAddress: "192.168.1.105",
-          port: "554",
-          username: "admin",
-        },
-      ]
-      setCameras(mockCameras)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleLoadCameraData = () => {
+    loadCameraData(setIsLoading, setCameras, (camera) => startCameraStream(camera, wsConnections, setCameras))
   }
 
-  const startCameraStream = (camera: Camera) => {
-    try {
-      console.log("[v0] Starting stream for camera:", camera.name)
-
-      const existingWs = wsConnections.current.get(camera.id)
-      if (existingWs) {
-        existingWs.close()
-      }
-
-      const wsUrl = `ws://localhost:8080/stream/${camera.id}`
-      const ws = new WebSocket(wsUrl)
-
-      ws.onopen = () => {
-        console.log("[v0] WebSocket connected for camera:", camera.name)
-        ws.send(
-          JSON.stringify({
-            type: "connect",
-            cameraId: camera.id,
-            ipAddress: camera.ipAddress,
-            port: camera.port,
-            username: camera.username,
-            authToken: localStorage.getItem("authToken"),
-          }),
-        )
-      }
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-
-          if (data.type === "video_frame") {
-            const videoElement = document.getElementById(`camera-${camera.id}`) as HTMLImageElement
-            if (videoElement && data.frame) {
-              videoElement.src = `data:image/jpeg;base64,${data.frame}`
-            }
-          } else if (data.type === "status_update") {
-            setCameras((prev) =>
-              prev.map((cam) => (cam.id === camera.id ? { ...cam, status: data.status, lastActive: "Live" } : cam)),
-            )
-          }
-        } catch (error) {
-          console.error("[v0] Error parsing WebSocket message:", error)
-        }
-      }
-
-      ws.onerror = (error) => {
-        console.error("[v0] WebSocket error for camera", camera.name, ":", error)
-      }
-
-      ws.onclose = () => {
-        console.log("[v0] WebSocket closed for camera:", camera.name)
-        wsConnections.current.delete(camera.id)
-
-        setCameras((prev) => prev.map((cam) => (cam.id === camera.id ? { ...cam, status: "offline" as const } : cam)))
-      }
-
-      wsConnections.current.set(camera.id, ws)
-    } catch (error) {
-      console.error("[v0] Error starting camera stream:", error)
-    }
+  const handleStartCameraStream = (camera: Camera) => {
+    startCameraStream(camera, wsConnections, setCameras)
   }
 
-
-  // TODO: Implement login action 
-  // TODO: Call page login
-  const handleLogin = async () => {
-    try {
-      console.log("[v0] Attempting login...")
-      // const authToken = "demo-auth-token-" + Date.now()
-      // localStorage.setItem("authToken", authToken)
-      // setIsAuthenticated(true)
-      // await loadCameraData()
-      // TODO: Show login page or redirect to login route here
-      router.push("/login")
-    } catch (error) {
-      console.error("[v0] Login error:", error)
-    }
+  const handleLogin = () => {
+    router.push("/login")
   }
 
   useEffect(() => {
     return () => {
-      wsConnections.current.forEach((ws) => {
-        ws.close()
-      })
+      wsConnections.current.forEach((ws) => ws.close())
       wsConnections.current.clear()
     }
   }, [])
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadCameraData()
+      handleLoadCameraData()
     }
   }, [isAuthenticated])
 
@@ -282,43 +97,33 @@ export function CameraManager() {
   )
 
   const getStatusColor = (status: Camera["status"]) => {
-    switch (status) {
-      case "online":
-        return "bg-green-500"
-      case "recording":
-        return "bg-red-500"
-      case "offline":
-        return "bg-gray-500"
-      default:
-        return "bg-gray-500"
+    const colors = {
+      online: "bg-green-500",
+      recording: "bg-red-500",
+      offline: "bg-gray-500",
     }
+    return colors[status] || "bg-gray-500"
   }
 
   const getStatusText = (status: Camera["status"]) => {
-    switch (status) {
-      case "online":
-        return "Online"
-      case "recording":
-        return "Recording"
-      case "offline":
-        return "Offline"
-      default:
-        return "Unknown"
+    const texts = {
+      online: "Online",
+      recording: "Recording",
+      offline: "Offline",
     }
+    return texts[status] || "Unknown"
   }
 
   const handleCameraClick = (camera: Camera) => {
     setPopupCamera(camera)
     setIsPopupOpen(true)
     if (camera.status !== "offline") {
-      startCameraStream(camera)
+      handleStartCameraStream(camera)
     }
   }
 
   const handleConnectCamera = async () => {
     try {
-      console.log("[v0] Connecting new camera:", newCamera)
-
       const response = await fetch("/api/cameras", {
         method: "POST",
         headers: {
@@ -333,7 +138,7 @@ export function CameraManager() {
         setCameras((prev) => [...prev, addedCamera])
 
         if (addedCamera.status !== "offline") {
-          startCameraStream(addedCamera)
+          handleStartCameraStream(addedCamera)
         }
       }
 
@@ -347,12 +152,13 @@ export function CameraManager() {
         password: "",
       })
     } catch (error) {
-      console.error("[v0] Error connecting camera:", error)
+      console.error("Error connecting camera:", error)
     }
   }
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Sidebar */}
       <div className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
         <div className="p-4 border-b border-sidebar-border">
           <h1 className="text-xl font-semibold text-sidebar-foreground flex items-center gap-2">
@@ -394,6 +200,7 @@ export function CameraManager() {
           </Button>
         </nav>
 
+        {/* Status Overview */}
         <div className="p-4 border-t border-sidebar-border">
           <div className="text-sm text-sidebar-foreground">
             <div className="flex items-center justify-between mb-2">
@@ -426,7 +233,9 @@ export function CameraManager() {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="flex-1 flex flex-col">
+        {/* Header */}
         <header className="bg-card border-b border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 flex-1">
@@ -453,8 +262,6 @@ export function CameraManager() {
                 {isAuthenticated ? "Logged In" : "Login"}
               </Button>
 
-
-              {/* Dark/Light Mode Toggle */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
@@ -464,22 +271,12 @@ export function CameraManager() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setTheme("light")}>
-                    Light
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("dark")}>
-                    Dark
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("system")}>
-                    System
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-
-
-
-              
               <Button
                 variant={viewMode === "grid" ? "default" : "outline"}
                 size="sm"
@@ -500,6 +297,7 @@ export function CameraManager() {
           </div>
         </header>
 
+        {/* Main Content Area */}
         <main className="flex-1 p-6 overflow-auto">
           {isLoading ? (
             <div className="text-center py-12">
@@ -604,6 +402,7 @@ export function CameraManager() {
         </main>
       </div>
 
+      {/* Camera Popup Dialog */}
       <Dialog open={isPopupOpen} onOpenChange={setIsPopupOpen}>
         <DialogContent className="max-w-4xl w-full h-[80vh]">
           <DialogHeader>
@@ -682,6 +481,7 @@ export function CameraManager() {
         </DialogContent>
       </Dialog>
 
+      {/* Connect Camera Dialog */}
       <Dialog open={isConnectDialogOpen} onOpenChange={setIsConnectDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
