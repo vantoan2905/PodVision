@@ -23,17 +23,25 @@ export const calculateCameraStreamDimensions = (
   containerDimensions: { width: number; height: number },
   resolutionPresets: ResolutionPreset[],
 ) => {
+  const offset = 280 // tăng thêm 80px so với code cũ (200 -> 280)
+
   if (selectedResolution === "auto") {
     return {
-      height: `${Math.max(300, containerDimensions.height - 200)}px`,
+      height: `${Math.max(300, containerDimensions.height - offset)}px`,
       width: "100%",
     }
   }
 
   const preset = resolutionPresets.find((p) => p.value === selectedResolution)
   return {
-    height: `${Math.min(containerDimensions.height - 200, (((containerDimensions.width * 2) / 3) * 9) / 16)}px`,
-    width: `${Math.min((containerDimensions.width * 2) / 3, preset?.width || containerDimensions.width)}px`,
+    height: `${Math.min(
+      containerDimensions.height - offset,
+      (((containerDimensions.width * 2) / 3) * 9) / 16,
+    )}px`,
+    width: `${Math.min(
+      (containerDimensions.width * 2) / 3,
+      preset?.width || containerDimensions.width,
+    )}px`,
   }
 }
 

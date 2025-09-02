@@ -15,6 +15,7 @@ import {
   Camera,
   Clock,
   Monitor,
+  Menu,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +27,8 @@ import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { useCameraManager } from "@/hooks/use-camera-manager"
 import { useAutoResize } from "@/hooks/use-auto-resize"
+import { ActionSidebar } from "@/components/action-sidebar"
+import { useState } from "react"
 
 import {
   resolutionPresets,
@@ -34,8 +37,13 @@ import {
   calculateImageHeight,
   calculateScrollAreaHeight,
 } from "@/utils/camera-helpers"
+import { filterErrorsInFrame, filterImagesInFrame } from "@/utils/error-filtering"
+import { calculateResponsiveDimensions, calculateGridItemHeight } from "@/utils/ui-calculations"
+import { createSidebarActions } from "@/utils/sidebar-actions"
 
 export function CameraManager() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   const {
     searchQuery,
     setSearchQuery,
@@ -49,7 +57,7 @@ export function CameraManager() {
     containerDimensions,
     setContainerDimensions,
     filteredErrors,
-    containerRef ,
+    containerRef,
     handleLogin,
     handleResolutionChange,
   } = useCameraManager()
@@ -58,31 +66,35 @@ export function CameraManager() {
 
   useAutoResize(containerRef, selectedResolution, resolutionPresets, setContainerDimensions)
 
+  const { handleSaveBug, handleDashboard, handleBugSummary } = createSidebarActions()
+
+  const visibleCapturedImages = filterImagesInFrame(capturedImages)
+  const errorsInFrame = filterErrorsInFrame(detectedErrors)
+
+  const responsiveDimensions = calculateResponsiveDimensions(containerDimensions)
+  const gridItemHeight = calculateGridItemHeight(containerDimensions)
+
   const getSeverityIcon = () => <AlertTriangle className="h-4 w-4" />
-
   const streamDimensions = calculateCameraStreamDimensions(selectedResolution, containerDimensions, resolutionPresets)
-
-  const visibleCapturedImages = capturedImages.filter((image) => {
-    const frameWidth = 854
-    const frameHeight = 480
-    return (
-      image.location &&
-      image.location.x >= 0 &&
-      image.location.x <= frameWidth &&
-      image.location.y >= 0 &&
-      image.location.y <= frameHeight
-    )
-  })
-
   const hasActiveErrors = detectedErrors.length > 0
   const hasVisibleImages = visibleCapturedImages.length > 0
 
   return (
     <div className="flex h-screen bg-background">
       {/* Header */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border p-4">
+      <div className="fixed top-0 left-0 right-0 z-30 bg-card border-b border-border p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="flex items-center gap-2"
+            >
+              <Menu className="h-4 w-4" />
+              Menu
+            </Button>
+
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
               <Video className="h-6 w-6 text-gray-600" />
               Quality Control Monitor
@@ -156,9 +168,18 @@ export function CameraManager() {
 
       {/* Main Content */}
       <div className="flex-1 pt-20 p-6" ref={containerRef}>
-        <div className="flex gap-6 h-full">
+        {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-10" onClick={() => setIsSidebarOpen(false)} />}
+
+        <div className="flex gap-6 h-full relative">
+          {/* Sidebar - positioned within main content */}
+          {isSidebarOpen && (
+            <div className="absolute left-0 top-0 w-16 z-20 bg-card border-r border-border center">
+              <ActionSidebar onSaveBug={handleSaveBug} onDashboard={handleDashboard} onBugSummary={handleBugSummary} />
+            </div>
+          )}
+
           {/* Left: Production Line Camera (2/3 width) */}
-          <div className="w-2/3 min-w-0">
+          <div className={cn("w-2/3 min-w-0 transition-all duration-300", isSidebarOpen && "ml-20")}>
             <Card className="w-full h-full pl-7 pr-7 ml-0 text-black">
               <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -208,38 +229,30 @@ export function CameraManager() {
                     width: streamDimensions.width,
                   }}
                 >
-                  <img
-                    src={
-                      currentStream?.streamUrl || "/placeholder.svg?height=400&width=800&query=industrial camera feed"
-                    }
-                    alt="Live camera feed"
+                  <video
+                    src={currentStream?.streamUrl}
+                    autoPlay
+                    muted
+                    controls
                     className="w-full h-full object-contain bg-black"
                     style={{
                       aspectRatio: "16/9",
                       objectFit: "contain",
                     }}
-                  />
-
-                  {detectedErrors
-                    .filter(
-                      (error) =>
-                        error.location.x >= 0 &&
-                        error.location.x <= 854 &&
-                        error.location.y >= 0 &&
-                        error.location.y <= 480,
-                    )
-                    .map((error) => (
-                      <div
-                        key={error.id}
-                        className="absolute w-4 h-4 border-2 border-red-500 bg-red-500/20 rounded-full cursor-pointer animate-pulse"
-                        style={{
-                          left: `${(error.location.x / 854) * 100}%`,
-                          top: `${(error.location.y / 480) * 100}%`,
-                          transform: "translate(-50%, -50%)",
-                        }}
-                        onClick={() => setSelectedError(error.id)}
-                      />
-                    ))}
+                  /> 
+                  {/* show bug on video */}
+                  {/* {errorsInFrame.map((error) => (
+                    <div
+                      key={error.id}
+                      className="absolute w-4 h-4 border-2 border-red-500 bg-red-500/20 rounded-full cursor-pointer animate-pulse"
+                      style={{
+                        left: `${(error.location.x / 854) * 100}%`,
+                        top: `${(error.location.y / 480) * 100}%`,
+                        transform: "translate(-50%, -50%)",
+                      }}
+                      onClick={() => setSelectedError(error.id)}
+                    />
+                  ))} */}
 
                   <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
                     <div className="text-white text-sm">
@@ -252,18 +265,7 @@ export function CameraManager() {
                       </p>
                     </div>
                     <div className="text-white text-sm text-right">
-                      <p>
-                        Errors Detected:{" "}
-                        {
-                          detectedErrors.filter(
-                            (error) =>
-                              error.location.x >= 0 &&
-                              error.location.x <= 854 &&
-                              error.location.y >= 0 &&
-                              error.location.y <= 480,
-                          ).length
-                        }
-                      </p>
+                      <p>Errors Detected: {errorsInFrame.length}</p>
                       <p className="text-xs opacity-75">Last Update: {new Date().toLocaleTimeString()}</p>
                     </div>
                   </div>
@@ -273,7 +275,6 @@ export function CameraManager() {
           </div>
 
           {/* Right: Captured Error Images and Error List (1/3 width) */}
-          {/* Error Image List */}
           <div className="w-1/3 flex flex-col gap-6 min-w-0">
             {hasVisibleImages && (
               <Card className="flex flex-col flex-1 min-h-0 max-h-full">
@@ -291,13 +292,13 @@ export function CameraManager() {
                     className="p-2 md:p-4 md:py-0 md:px-4"
                     style={{
                       height: calculateScrollAreaHeight(containerDimensions),
-                      maxHeight: `${Math.max(200, containerDimensions.height * 0.4 - 80)}px`,
+                      maxHeight: `${responsiveDimensions.scrollHeight}px`,
                     }}
                   >
                     <div
                       className="grid grid-cols-1 gap-2 md:gap-4"
                       style={{
-                        gridTemplateRows: `repeat(auto-fit, minmax(${Math.max(80, containerDimensions.height * 0.12)}px, auto))`,
+                        gridTemplateRows: `repeat(auto-fit, minmax(${gridItemHeight.minHeight}px, auto))`,
                       }}
                     >
                       {visibleCapturedImages.map((image) => (
@@ -309,8 +310,8 @@ export function CameraManager() {
                           )}
                           onClick={() => setSelectedError(image.id)}
                           style={{
-                            minHeight: `${Math.max(60, containerDimensions.height * 0.08)}px`,
-                            maxHeight: `${Math.max(120, containerDimensions.height * 0.15)}px`,
+                            minHeight: `${gridItemHeight.minHeight}px`,
+                            maxHeight: `${gridItemHeight.maxHeight}px`,
                           }}
                         >
                           <img
@@ -319,7 +320,7 @@ export function CameraManager() {
                             className="w-full object-cover"
                             style={{
                               height: calculateImageHeight(containerDimensions),
-                              minHeight: `${Math.max(60, containerDimensions.height * 0.08)}px`,
+                              minHeight: `${gridItemHeight.minHeight}px`,
                             }}
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -335,7 +336,7 @@ export function CameraManager() {
                           </div>
                           <div className="absolute top-1 right-1">
                             <Badge
-                              className={cn("text-xs", getSeverityColor(image.severity))}
+                              className={cn("text-xs", getSeverityColor(image.severity as "low" | "medium" | "high"))}
                               style={{
                                 fontSize: `${Math.max(8, containerDimensions.width * 0.006)}px`,
                                 padding: `${Math.max(2, containerDimensions.width * 0.002)}px ${Math.max(4, containerDimensions.width * 0.004)}px`,
@@ -351,6 +352,7 @@ export function CameraManager() {
                 </CardContent>
               </Card>
             )}
+
             {/* Error List */}
             {filteredErrors.length > 0 && (
               <Card className="flex flex-col flex-1 min-h-0">
@@ -367,7 +369,7 @@ export function CameraManager() {
                   <ScrollArea
                     style={{
                       height: calculateScrollAreaHeight(containerDimensions),
-                      maxHeight: `${Math.max(200, containerDimensions.height * 0.4 - 80)}px`,
+                      maxHeight: `${responsiveDimensions.scrollHeight}px`,
                     }}
                   >
                     <div
