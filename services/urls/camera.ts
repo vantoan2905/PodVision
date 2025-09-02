@@ -1,63 +1,7 @@
-  
-  
-  
-  "use client"
+"use client"
 
-import { useState, useEffect, useRef } from "react"
-import {
-  Search,
-  Video,
-  Settings,
-  Grid3X3,
-  List,
-  MoreVertical,
-  Play,
-  Volume2,
-  Maximize2,
-  X,
-  User,
-  Sun,
-  Moon,
-  Plus,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { useState, useRef } from "react"
 import { useTheme } from "next-themes"
-import { cn } from "@/lib/utils"
-import LoginPage from "@/app/login/page"
-import { useRouter } from "next/navigation"
-import { ThemeProvider } from "@/components/theme-provider"
-  
-  
-  
-  const [searchQuery, setSearchQuery] = useState("")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
-  const [isPopupOpen, setIsPopupOpen] = useState(false)
-  const [popupCamera, setPopupCamera] = useState<Camera | null>(null)
-  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false)
-  const [newCamera, setNewCamera] = useState({
-    name: "",
-    location: "",
-    ipAddress: "",
-    port: "",
-    username: "",
-    password: "",
-  })
-  const { theme, setTheme } = useTheme()
-
-  const [cameras, setCameras] = useState<Camera[]>([])
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const wsConnections = useRef<Map<string, WebSocket>>(new Map())
-
-
-
 
 interface Camera {
   id: string
@@ -73,10 +17,109 @@ interface Camera {
   streamUrl?: string
 }
 
-export const loadCameraData = async () => {
+export function useCameraManager() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
+  const [isPopupOpen, setIsPopupOpen] = useState(false)
+  const [popupCamera, setPopupCamera] = useState<Camera | null>(null)
+  const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false)
+  const [newCamera, setNewCamera] = useState({
+    name: "",
+    location: "",
+    ipAddress: "",
+    port: "",
+    username: "",
+    password: "",
+  })
+  const [cameras, setCameras] = useState<Camera[]>([])
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const { theme, setTheme } = useTheme()
+  const wsConnections = useRef<Map<string, WebSocket>>(new Map())
+
+  // // Mock cameras fallback
+  // const mockCameras: Camera[] = [
+  //   {
+  //     id: "1",
+  //     name: "Front Entrance",
+  //     location: "Main Building",
+  //     status: "online",
+  //     thumbnail: "/placeholder.svg?height=180&width=320",
+  //     resolution: "1080p",
+  //     lastActive: "2 min ago",
+  //     ipAddress: "192.168.1.100",
+  //     port: "554",
+  //     username: "admin",
+  //   },
+  //   {
+  //     id: "2",
+  //     name: "Parking Lot A",
+  //     location: "North Side",
+  //     status: "recording",
+  //     thumbnail: "/placeholder.svg?height=180&width=320",
+  //     resolution: "4K",
+  //     lastActive: "Live",
+  //     ipAddress: "192.168.1.101",
+  //     port: "554",
+  //     username: "admin",
+  //   },
+  //   {
+  //     id: "3",
+  //     name: "Reception Area",
+  //     location: "Lobby",
+  //     status: "online",
+  //     thumbnail: "/placeholder.svg?height=180&width=320",
+  //     resolution: "1080p",
+  //     lastActive: "1 min ago",
+  //     ipAddress: "192.168.1.102",
+  //     port: "554",
+  //     username: "admin",
+  //   },
+  //   {
+  //     id: "4",
+  //     name: "Server Room",
+  //     location: "Basement",
+  //     status: "offline",
+  //     thumbnail: "/placeholder.svg?height=180&width=320",
+  //     resolution: "720p",
+  //     lastActive: "1 hour ago",
+  //     ipAddress: "192.168.1.103",
+  //     port: "554",
+  //     username: "admin",
+  //   },
+  //   {
+  //     id: "5",
+  //     name: "Loading Dock",
+  //     location: "Warehouse",
+  //     status: "online",
+  //     thumbnail: "/placeholder.svg?height=180&width=320",
+  //     resolution: "1080p",
+  //     lastActive: "30 sec ago",
+  //     ipAddress: "192.168.1.104",
+  //     port: "554",
+  //     username: "admin",
+  //   },
+  //   {
+  //     id: "6",
+  //     name: "Conference Room B",
+  //     location: "2nd Floor",
+  //     status: "recording",
+  //     thumbnail: "/placeholder.svg?height=180&width=320",
+  //     resolution: "4K",
+  //     lastActive: "Live",
+  //     ipAddress: "192.168.1.105",
+  //     port: "554",
+  //     username: "admin",
+  //   },
+  // ]
+
+  const cameradata: Camera[] = []
+
+  const loadCameraData = async () => {
     try {
       setIsLoading(true)
-      console.log("[v0] Loading camera data from API...")
 
       const response = await fetch("/api/cameras", {
         method: "GET",
@@ -86,115 +129,32 @@ export const loadCameraData = async () => {
         },
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to load cameras")
-      }
+      if (!response.ok) throw new Error("Failed to load cameras")
 
-      const cameraData = await response.json()
-      console.log("[v0] Loaded cameras:", cameraData)
-      setCameras(cameraData)
+      const data = await response.json()
+      setCameras(data)
 
-      cameraData.forEach((camera: Camera) => {
+      data.forEach((camera: Camera) => {
         if (camera.status === "online" || camera.status === "recording") {
           startCameraStream(camera)
         }
       })
     } catch (error) {
-      console.error("[v0] Error loading cameras:", error)
-      const mockCameras: Camera[] = [
-        {
-          id: "1",
-          name: "Front Entrance",
-          location: "Main Building",
-          status: "online",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "1080p",
-          lastActive: "2 min ago",
-          ipAddress: "192.168.1.100",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "2",
-          name: "Parking Lot A",
-          location: "North Side",
-          status: "recording",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "4K",
-          lastActive: "Live",
-          ipAddress: "192.168.1.101",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "3",
-          name: "Reception Area",
-          location: "Lobby",
-          status: "online",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "1080p",
-          lastActive: "1 min ago",
-          ipAddress: "192.168.1.102",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "4",
-          name: "Server Room",
-          location: "Basement",
-          status: "offline",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "720p",
-          lastActive: "1 hour ago",
-          ipAddress: "192.168.1.103",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "5",
-          name: "Loading Dock",
-          location: "Warehouse",
-          status: "online",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "1080p",
-          lastActive: "30 sec ago",
-          ipAddress: "192.168.1.104",
-          port: "554",
-          username: "admin",
-        },
-        {
-          id: "6",
-          name: "Conference Room B",
-          location: "2nd Floor",
-          status: "recording",
-          thumbnail: "/placeholder.svg?height=180&width=320",
-          resolution: "4K",
-          lastActive: "Live",
-          ipAddress: "192.168.1.105",
-          port: "554",
-          username: "admin",
-        },
-      ]
-      setCameras(mockCameras)
+      console.error("Error loading cameras:", error)
+      setCameras(cameradata)
     } finally {
       setIsLoading(false)
     }
   }
 
-export  const startCameraStream = (camera: Camera) => {
+  const startCameraStream = (camera: Camera) => {
     try {
-      console.log("[v0] Starting stream for camera:", camera.name)
-
       const existingWs = wsConnections.current.get(camera.id)
-      if (existingWs) {
-        existingWs.close()
-      }
+      if (existingWs) existingWs.close()
 
-      const wsUrl = `ws://localhost:8080/stream/${camera.id}`
-      const ws = new WebSocket(wsUrl)
+      const ws = new WebSocket(`ws://localhost:8080/stream/${camera.id}`)
 
       ws.onopen = () => {
-        console.log("[v0] WebSocket connected for camera:", camera.name)
         ws.send(
           JSON.stringify({
             type: "connect",
@@ -212,33 +172,72 @@ export  const startCameraStream = (camera: Camera) => {
           const data = JSON.parse(event.data)
 
           if (data.type === "video_frame") {
-            const videoElement = document.getElementById(`camera-${camera.id}`) as HTMLImageElement
-            if (videoElement && data.frame) {
-              videoElement.src = `data:image/jpeg;base64,${data.frame}`
+            const videoEl = document.getElementById(
+              `camera-${camera.id}`,
+            ) as HTMLImageElement
+
+            if (videoEl && data.frame) {
+              videoEl.src = `data:image/jpeg;base64,${data.frame}`
             }
-          } else if (data.type === "status_update") {
+          }
+
+          if (data.type === "status_update") {
             setCameras((prev) =>
-              prev.map((cam) => (cam.id === camera.id ? { ...cam, status: data.status, lastActive: "Live" } : cam)),
+              prev.map((cam) =>
+                cam.id === camera.id
+                  ? { ...cam, status: data.status, lastActive: "Live" }
+                  : cam,
+              ),
             )
           }
-        } catch (error) {
-          console.error("[v0] Error parsing WebSocket message:", error)
+        } catch (err) {
+          console.error("Error parsing WebSocket message:", err)
         }
       }
 
-      ws.onerror = (error) => {
-        console.error("[v0] WebSocket error for camera", camera.name, ":", error)
+      ws.onerror = (err) => {
+        console.error("WebSocket error:", err)
       }
 
       ws.onclose = () => {
-        console.log("[v0] WebSocket closed for camera:", camera.name)
         wsConnections.current.delete(camera.id)
-
-        setCameras((prev) => prev.map((cam) => (cam.id === camera.id ? { ...cam, status: "offline" as const } : cam)))
+        setCameras((prev) =>
+          prev.map((cam) =>
+            cam.id === camera.id ? { ...cam, status: "offline" } : cam,
+          ),
+        )
       }
 
       wsConnections.current.set(camera.id, ws)
-    } catch (error) {
-      console.error("[v0] Error starting camera stream:", error)
+    } catch (err) {
+      console.error("Error starting camera stream:", err)
     }
   }
+
+  return {
+    searchQuery,
+    setSearchQuery,
+    viewMode,
+    setViewMode,
+    selectedCamera,
+    setSelectedCamera,
+    isPopupOpen,
+    setIsPopupOpen,
+    popupCamera,
+    setPopupCamera,
+    isConnectDialogOpen,
+    setIsConnectDialogOpen,
+    newCamera,
+    setNewCamera,
+    cameras,
+    setCameras,
+    isAuthenticated,
+    setIsAuthenticated,
+    isLoading,
+    setIsLoading,
+    theme,
+    setTheme,
+    loadCameraData,
+    startCameraStream,
+  }
+}

@@ -23,17 +23,3 @@ export interface ResolutionPreset {
   width: number
   height: number
 }
-
-export interface Camera {
-  id: string
-  name: string
-  location: string
-  status: "online" | "offline" | "recording"
-  thumbnail: string
-  resolution: string
-  lastActive: string
-  ipAddress: string
-  port: string
-  username: string
-  streamUrl?: string
-}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import type { CameraStream, DetectedError } from "@/types/camera"
 
 export function useCameraManager() {
+  // -------------------- STATE MANAGEMENT --------------------
   const [searchQuery, setSearchQuery] = useState("")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [currentStream, setCurrentStream] = useState<CameraStream | null>(null)
@@ -13,22 +14,40 @@ export function useCameraManager() {
   const [selectedError, setSelectedError] = useState<string | null>(null)
   const [selectedResolution, setSelectedResolution] = useState<string>("auto")
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 })
+
+  // -------------------- ROUTER --------------------
   const router = useRouter()
+
+  // -------------------- REFS --------------------
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    // Mock camera stream information
-    setCurrentStream({
-      id: "cam-001",
-      name: "Production Line Camera",
-      location: "Assembly Line 1",
-      status: "recording",
-      streamUrl: "/industrial-production-line-camera-feed.png",
-      resolution: "1920x1080",
-    })
+  // -------------------- CAMERA LOGIC --------------------
+  const loadCameraData = () => {
+    // TODO: Load real camera data here
+    console.log("Loading camera data...")
+  }
 
-    // Mock detected errors informations
+  const startCameraStream = (camera: CameraStream) => {
+    // TODO: Start camera stream using WebSocket or MediaStream
+    if (videoRef.current) {
+      videoRef.current.srcObject = new MediaStream()
+    }
+  }
+
+  // -------------------- MOCK DATA --------------------
+  useEffect(() => {
+    const mockCameras: CameraStream[] = [
+      {
+        id: "cam-001",
+        name: "Production Line Camera",
+        location: "Assembly Line 1",
+        status: "recording",
+        streamUrl: "/industrial-production-line-camera-feed.png",
+        resolution: "1920x1080",
+      },
+    ]
+
     const mockErrors: DetectedError[] = [
       {
         id: "err-001",
@@ -57,82 +76,21 @@ export function useCameraManager() {
         imageUrl: "/size-measurement-error.png",
         location: { x: 280, y: 320 },
       },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-            {
-        id: "err-003",
-        timestamp: "2024-01-15 14:18:33",
-        type: "Dimensional Error",
-        severity: "low",
-        description: "Minor size deviation detected",
-        imageUrl: "/size-measurement-error.png",
-        location: { x: 280, y: 320 },
-      },
-
     ]
 
+    setCurrentStream(mockCameras[0])
     setDetectedErrors(mockErrors)
     setCapturedImages(mockErrors)
   }, [])
 
+  // -------------------- FILTERING --------------------
   const filteredErrors = detectedErrors.filter(
     (error) =>
       error.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
       error.description.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
+  // -------------------- HANDLERS --------------------
   const handleLogin = () => {
     router.push("/login")
   }
@@ -141,6 +99,7 @@ export function useCameraManager() {
     setSelectedResolution(resolution)
   }
 
+  // -------------------- RETURN API --------------------
   return {
     // State
     searchQuery,
